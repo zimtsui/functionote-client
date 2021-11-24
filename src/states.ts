@@ -19,21 +19,25 @@ interface StateGeneric {
     root: FnodeId;
     filePathArray: string[];
 }
-interface StateDownloadIng extends StateGeneric { }
-interface StateDownloadSuccRegularFile extends StateGeneric {
+export interface StateDownloadIng extends StateGeneric {
+    sync: SyncState.DL_ING;
+}
+export interface StateDownloadSuccRegularFile extends StateGeneric {
     sync: SyncState.DL_SUCC_REGULAR_FILE;
     view: string;
 }
-interface StateDownloadSuccDirecrtory extends StateGeneric {
+export interface StateDownloadSuccDirecrtory extends StateGeneric {
     sync: SyncState.DL_SUCC_DIRECTORY;
     view: DirectoryFnodeView;
 }
-interface StateDownloadFail extends StateGeneric { }
-interface StateUploadIngRegularFile extends StateGeneric {
+export interface StateDownloadFail extends StateGeneric {
+    sync: SyncState.DL_FAIL;
+}
+export interface StateUploadIngRegularFile extends StateGeneric {
     sync: SyncState.UL_ING_REGULAR_FILE;
     view: string;
 }
-interface StateUploadIngDirectory extends StateGeneric {
+export interface StateUploadIngDirectory extends StateGeneric {
     sync: SyncState.UL_ING_DIRECTORY;
     view: RegularFileFnodeView;
 }
