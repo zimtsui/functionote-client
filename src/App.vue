@@ -1,23 +1,27 @@
 <template lang="pug">
-div
-    input(type='text' :value='filePath' readonly)
-    button(
+div#root
+    div.margin-up-down: NInput(
+        type='text'
+        v-model:value="filePath"
+        readonly
+    )
+    div.margin-up-down: NButton.full-width(
         :disabled=`!buttonVisibility('onUpwards')`
         @click='onUpwards'
     ) Up
-    button(
+    div.margin-up-down: NButton.full-width(
         :disabled=`!buttonVisibility('onMkdir')`
         @click='onMkdir'
     ) New directory
-    button(
+    div.margin-up-down: NButton.full-width(
         :disabled=`!buttonVisibility('onMkmd')`
         @click='onMkmd'
-    ) New markdown document
-    button(
+    ) New markdown
+    div.margin-up-down: NButton.full-width(
         :disabled=`!buttonVisibility('onReload')`
         @click='onReload'
     ) Reload
-    component(
+    div.margin-up-down: component(
         :is='viewComponentName'
         v-bind='viewComponentProps'
         v-on='viewComponentListeners'
@@ -40,6 +44,7 @@ import { State, SyncState, Snapshot } from './states';
 import config = require('./config.json');
 import Mime = require('whatwg-mimetype');
 import chai = require('chai');
+import { NButton, NInput } from 'naive-ui';
 const assert = chai.assert;
 
 
@@ -297,6 +302,23 @@ export default defineComponent({
         DownloadFailed,
         UploadingRegularFile,
         UploadingDirectory,
+        NButton,
+        NInput,
     }
 });
 </script>
+
+<style lang="stylus" scoped>
+.full-width
+    width 100%
+.margin-up-down
+    margin-top 5px
+body
+    overflow-x hidden
+    overflow-y scroll
+div#root
+    margin 5vw
+    word-wrap break-word
+    width 90vw
+    overflow-x hidden
+</style>
