@@ -1,0 +1,289 @@
+<template lang="pug">
+div
+    input(type='text' :value='filePath' readonly)
+    button(
+        :disabled=`!buttonVisibility('onUpwards')`
+        @click='onUpwards'
+    ) Up
+    button(
+        :disabled=`!buttonVisibility('onMkdir')`
+        @click='onMkdir'
+    ) New directory
+    button(
+        :disabled=`!buttonVisibility('onMkmd')`
+        @click='onMkmd'
+    ) New markdown document
+    button(
+        :disabled=`!buttonVisibility('onReload')`
+        @click='onReload'
+    ) Reload
+    component(
+        :is='viewComponentName'
+        v-bind='viewComponentProps'
+        v-on='viewComponentListeners'
+    )
+</template>
+
+<script lang="ts">
+import { PropType, defineComponent, reactive } from 'vue';
+import ViewDirectory from './ViewDirectory.vue';
+import ViewRegularFile from './ViewRegularFile.vue';
+import Downloading from './Downloading.vue';
+import DownloadFailed from './DownloadFailed.vue';
+import UploadingRegularFile from './UploadingRegularFile.vue';
+import UploadingDirectory from './UploadingDirectory.vue';
+import {
+    FnodeId,
+    SubscriptionsView,
+} from './interfaces';
+import { State, SyncState, Snapshot } from './states';
+import config = require('./config.json');
+import Mime = require('whatwg-mimetype');
+import chai = require('chai');
+const assert = chai.assert;
+
+
+export default defineComponent({
+    async mounted() {
+        await this.onReload();
+    },
+    provide() {
+        return {
+            state: reactive(this.state),
+        };
+    },
+    data() {
+        return {
+            state: {
+                branch: 1,
+                root: 0,
+                filePathArray: [],
+                sync: SyncState.DL_ING,
+                view: null,
+            } as State,
+        };
+    },
+    computed: {
+        filePath(): string {
+            return '/' + this.state.filePathArray.join('/');
+        },
+        urlPathArray(): string[] {
+            return ['files'].concat(this.state.filePathArray);
+        },
+        viewComponentName(): string {
+            switch (this.state.sync) {
+                case SyncState.DL_SUCC_REGULAR_FILE: return 'ViewRegularFile';
+                case SyncState.DL_SUCC_DIRECTORY: return 'ViewDirectory';
+                case SyncState.DL_ING: return 'Downloading';
+                case SyncState.DL_FAIL: return 'DownloadFailed';
+                case SyncState.UL_ING_REGULAR_FILE: return 'UploadingRegularFile';
+                case SyncState.UL_ING_DIRECTORY: return 'UploadingDirectory';
+                default: throw new Error();
+            }
+        },
+        viewComponentProps(): {} {
+            switch (this.state.sync) {
+                default: return {};
+            }
+        },
+        viewComponentListeners(): {} {
+            switch (this.state.sync) {
+                case SyncState.DL_SUCC_DIRECTORY: return {
+                    downwards: this.onDownwards,
+                };
+                default: return {};
+            }
+        }
+    },
+    methods: {
+        buttonVisibility(listener: string): boolean {
+            switch (listener) {
+                case 'onReload':
+                    return this.state.sync === SyncState.DL_SUCC_DIRECTORY ||
+                        this.state.sync === SyncState.DL_SUCC_REGULAR_FILE ||
+                        this.state.sync === SyncState.DL_FAIL;
+                case 'onMkdir':
+                    return this.state.sync === SyncState.DL_SUCC_DIRECTORY;
+                case 'onMkmd':
+                    return this.state.sync === SyncState.DL_SUCC_DIRECTORY;
+                case 'onUpwards':
+                    return (
+                        this.state.sync === SyncState.DL_SUCC_DIRECTORY ||
+                        this.state.sync === SyncState.DL_SUCC_REGULAR_FILE
+                    ) && this.state.filePathArray.length > 0;
+            }
+        },
+        async getLatestRoot(): Promise<FnodeId> {
+            this.state.sync = SyncState.DL_ING;
+
+            const res = await fetch(
+                [config.BACKEND_BASEURL, 'subscriptions'].join('/'), {
+                credentials: 'include',
+            });
+            assert(res.ok);
+            assert(res.headers.has('Content-Type'));
+            const mime = new Mime(res.headers.get('Content-Type'));
+            assert(mime.essence === 'application/json');
+            const s10ns = <SubscriptionsView>await res.json();
+            const s10n = s10ns.find(s10n => s10n.branchId === this.state.branch);
+            assert(s10n);
+            return s10n.latestVersionId;
+        },
+        async onMkmd() {
+            try {
+                try {
+                    this.state.sync = SyncState.UL_ING_DIRECTORY;
+
+                    const name = window.prompt('Document name:');
+                    if (typeof name !== 'string') return;
+                    const res = await fetch(
+                        [config.BACKEND_BASEURL, ...this.urlPathArray, name].join('/'), {
+                        method: 'PATCH',
+                        headers: {
+                            'Branch-Id': String(this.state.branch),
+                            'Root-File-Id': String(this.state.root),
+                            'Time': String(Date.now()),
+                            'Content-Type': 'text/markdown',
+                        },
+                        credentials: 'include',
+                        body: '',
+                    });
+                    assert(res.ok);
+                    assert(res.headers.has('Root-File-Id'));
+                    this.state.root = Number(res.headers.get('Root-File-Id'));
+                } catch (err) {
+                    this.state.sync = SyncState.DL_SUCC_DIRECTORY;
+                    throw err;
+                }
+                try {
+                    await this.refresh();
+                } catch (err) {
+                    this.state.sync = SyncState.DL_FAIL;
+                    throw err;
+                }
+            } catch (err) { }
+
+        },
+        async onUpwards() {
+            try {
+                if (this.state.filePathArray.length === 0) return;
+                try {
+                    if (this.state.sync === SyncState.DL_SUCC_REGULAR_FILE)
+                        await this.save(this.state.view);
+                } catch (err) {
+                    this.state.sync = SyncState.DL_SUCC_REGULAR_FILE;
+                    throw err;
+                }
+                try {
+                    this.state.filePathArray.pop();
+                    await this.refresh();
+                } catch (err) {
+                    this.state.sync = SyncState.DL_FAIL;
+                    throw err;
+                }
+            } catch (err) { }
+        },
+        async onMkdir() {
+            try {
+                try {
+                    this.state.sync = SyncState.UL_ING_DIRECTORY;
+
+                    const name = window.prompt('Directory name:');
+                    if (typeof name !== 'string') return;
+                    const res = await fetch(
+                        [config.BACKEND_BASEURL, ...this.urlPathArray, name].join('/'), {
+                        method: 'PATCH',
+                        headers: {
+                            'Branch-Id': String(this.state.branch),
+                            'Root-File-Id': String(this.state.root),
+                            'Time': String(Date.now()),
+                        },
+                        credentials: 'include',
+                    });
+                    assert(res.ok);
+                    assert(res.headers.has('Root-File-Id'));
+                    this.state.root = Number(res.headers.get('Root-File-Id'));
+                } catch (err) {
+                    this.state.sync = SyncState.DL_SUCC_DIRECTORY;
+                    throw err;
+                }
+                try {
+                    await this.refresh();
+                } catch (err) {
+                    this.state.sync = SyncState.DL_FAIL;
+                    throw err;
+                }
+            } catch (err) { }
+        },
+        async refresh() {
+            this.state.sync = SyncState.DL_ING;
+
+            const res = await fetch(
+                [config.BACKEND_BASEURL, ...this.urlPathArray].join('/'), {
+                headers: {
+                    'Branch-Id': String(this.state.branch),
+                    'Root-File-Id': String(this.state.root),
+                },
+                credentials: 'include',
+            });
+            assert(res.ok);
+            assert(res.headers.has('Content-Type'));
+            const mime = new Mime(res.headers.get('Content-Type'));
+            if (mime.essence === 'application/json') {
+                // Vue renders asyncly.
+                const newView = await res.json();
+                this.state.sync = SyncState.DL_SUCC_DIRECTORY;
+                this.state.view = newView;
+            } else if (mime.essence === 'text/markdown') {
+                const newView = await res.text();
+                this.state.sync = SyncState.DL_SUCC_REGULAR_FILE;
+                this.state.view = newView;
+            } else throw new Error();
+
+        },
+        async save(text: string) {
+            this.state.sync = SyncState.UL_ING_REGULAR_FILE;
+
+            const res = await fetch(
+                [config.BACKEND_BASEURL, ...this.urlPathArray].join('/'), {
+                method: 'PUT',
+                headers: {
+                    'Branch-Id': String(this.state.branch),
+                    'Root-File-Id': String(this.state.root),
+                    'Time': String(Date.now()),
+                    'Content-Type': 'text/markdown',
+                },
+                body: text,
+                credentials: 'include',
+            });
+            assert(res.ok);
+            assert(res.headers.has('Root-File-Id'));
+            this.state.root = Number(res.headers.get('Root-File-Id'));
+        },
+        async onDownwards(name: string) {
+            try {
+                this.state.filePathArray.push(name);
+                await this.refresh();
+            } catch (err) {
+                this.state.sync = SyncState.DL_FAIL;
+            }
+        },
+        async onReload() {
+            try {
+                this.state.root = await this.getLatestRoot();
+                await this.refresh();
+            } catch (err) {
+                this.state.sync = SyncState.DL_FAIL;
+            }
+        },
+    },
+    components: {
+        ViewDirectory,
+        ViewRegularFile,
+        Downloading,
+        DownloadFailed,
+        UploadingRegularFile,
+        UploadingDirectory,
+    }
+});
+</script>
