@@ -45,7 +45,17 @@ const assert = chai.assert;
 
 export default defineComponent({
     async mounted() {
-        await this.onReload();
+        const snapshotString = localStorage.getItem('backup');
+        if (snapshotString !== null) {
+            const snapshot: Snapshot = JSON.parse(snapshotString);
+            this.state.sync = SyncState.DL_SUCC_REGULAR_FILE;
+            this.state.branch = snapshot.branch;
+            this.state.root = snapshot.root;
+            this.state.filePathArray = snapshot.filePathArray;
+            this.state.view = snapshot.text;
+        } else {
+            await this.onReload();
+        }
     },
     provide() {
         return {
@@ -239,7 +249,6 @@ export default defineComponent({
                 this.state.sync = SyncState.DL_SUCC_REGULAR_FILE;
                 this.state.view = newView;
             } else throw new Error();
-
         },
         async save(text: string) {
             this.state.sync = SyncState.UL_ING_REGULAR_FILE;
@@ -259,6 +268,8 @@ export default defineComponent({
             assert(res.ok);
             assert(res.headers.has('Root-File-Id'));
             this.state.root = Number(res.headers.get('Root-File-Id'));
+
+            localStorage.removeItem('backup');
         },
         async onDownwards(name: string) {
             try {
@@ -272,6 +283,8 @@ export default defineComponent({
             try {
                 this.state.root = await this.getLatestRoot();
                 await this.refresh();
+
+                localStorage.removeItem('backup');
             } catch (err) {
                 this.state.sync = SyncState.DL_FAIL;
             }
