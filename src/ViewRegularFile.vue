@@ -22,6 +22,7 @@ import MarkdownIt = require('markdown-it');
 import markdownItKatex = require('markdown-it-katex');
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
+import '../katex/katex.min.css';
 
 
 const markdownIt = new MarkdownIt({
@@ -74,10 +75,6 @@ export default defineComponent({
     }
 });
 </script>
-
-<style lang="stylus" scoped>
-@import "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.5.1/katex.min.css"
-</style>
 
 <style lang="stylus" scoped>
 .margin-up-down

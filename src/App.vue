@@ -243,28 +243,34 @@ export default defineComponent({
                 }
             } catch (err) { }
         },
+        async remove() {
+            if (!globalThis.confirm('Confirm to remove')) return;
+            this.state.sync = this.state.sync === SyncState.DL_SUCC_DIRECTORY
+                ? SyncState.UL_ING_DIRECTORY
+                : SyncState.UL_ING_REGULAR_FILE;
+            const res = await fetch(
+                config.BACKEND_BASEURL + [...this.urlPathArray].join('/'), {
+                method: 'DELETE',
+                headers: {
+                    'Branch-Id': String(this.state.branch),
+                    'Root-File-Id': String(this.state.root),
+                    'Time': String(Date.now()),
+                },
+                credentials: 'include',
+            });
+            assert(res.ok);
+            assert(res.headers.has('Root-File-Id'));
+            this.state.root = Number(res.headers.get('Root-File-Id'));
+            globalThis.localStorage.removeItem('backup');
+        },
         async onRemove() {
             try {
                 try {
-                    if (!globalThis.confirm('Confirm to remove?')) return;
-                    this.state.sync = this.state.sync === SyncState.DL_SUCC_DIRECTORY
-                        ? SyncState.UL_ING_DIRECTORY
-                        : SyncState.UL_ING_REGULAR_FILE;
-                    const res = await fetch(
-                        config.BACKEND_BASEURL + [...this.urlPathArray].join('/'), {
-                        method: 'DELETE',
-                        headers: {
-                            'Branch-Id': String(this.state.branch),
-                            'Root-File-Id': String(this.state.root),
-                            'Time': String(Date.now()),
-                        },
-                        credentials: 'include',
-                    });
-                    assert(res.ok);
-                    assert(res.headers.has('Root-File-Id'));
-                    this.state.root = Number(res.headers.get('Root-File-Id'));
+                    await this.remove();
                 } catch (err) {
-                    this.state.sync = SyncState.DL_SUCC_DIRECTORY;
+                    this.state.sync = this.state.sync === SyncState.UL_ING_DIRECTORY
+                        ? SyncState.DL_SUCC_DIRECTORY
+                        : SyncState.DL_SUCC_REGULAR_FILE;
                     throw err;
                 }
                 try {
