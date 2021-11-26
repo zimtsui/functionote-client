@@ -157,10 +157,9 @@ export default defineComponent({
         async onMkmd() {
             try {
                 try {
-                    this.state.sync = SyncState.UL_ING_DIRECTORY;
-
                     const name = globalThis.prompt('Document name:');
                     if (typeof name !== 'string') return;
+                    this.state.sync = SyncState.UL_ING_DIRECTORY;
                     const res = await fetch(
                         config.BACKEND_BASEURL + [...this.urlPathArray, name].join('/'), {
                         method: 'PATCH',
