@@ -3,7 +3,6 @@ div
     NTabs(
         type='line'
         v-model:value='tabName'
-        @update:value='switchTab'
     )
         NTab(name='viewer') Viewer
         NTab(name='editor') Editor
@@ -13,7 +12,7 @@ div
     )
     div.margin-up-down(
         v-show=`tabName === 'editor'`
-        ref='cm'
+        ref='editor'
     )
 </template>
 
@@ -24,11 +23,9 @@ import { NInput, NCard, NTabs, NTab, } from 'naive-ui';
 import MarkdownIt = require('markdown-it');
 import markdownItKatex = require('markdown-it-katex');
 import hljs from 'highlight.js';
-import CodeMirror = require('codemirror/lib/codemirror');
 import 'highlight.js/styles/github.css';
 import '../katex/katex.min.css';
-import 'codemirror/mode/markdown/markdown';
-import 'codemirror/lib/codemirror.css';
+import CodeFlask from 'codeflask';
 
 
 const markdownIt = new MarkdownIt({
@@ -53,17 +50,14 @@ export default defineComponent({
     emits: ['update:modelValue'],
     inject: ['state'],
     mounted() {
-        const cm = CodeMirror(this.$refs.cm, {
-            value: this.state.view,
-            mode: "text/markdown",
-            indentWithTabs: true,
-            lineWrapping: true,
+        const editor = new CodeFlask(this.$refs.editor, {
+            tabSize: 4,
         });
-        cm.on('change', () => {
-            this.state.view = cm.getValue();
-            this.backup();
+        editor.updateCode(this.state.view);
+        editor.onUpdate((code: string) => {
+            this.state.view = code;
+            this.backup(code);
         });
-        this.$data.cm = cm;
     },
     computed: {
         mdText() {
@@ -76,9 +70,6 @@ export default defineComponent({
         }
     },
     methods: {
-        switchTab() {
-            Promise.resolve().then(() => this.cm.refresh());
-        },
         backup() {
             const snapshot: Snapshot = {
                 branch: this.state.branch,
