@@ -10,12 +10,9 @@ div
         v-html='mdText'
         v-show=`tabName === 'viewer'`
     )
-    div
+    div.margin-up-down(v-show=`tabName === 'editor'`)
         p {{saved}}
-        div.margin-up-down(
-            v-show=`tabName === 'editor'`
-            ref='editor'
-        )
+        div.margin-up-down(ref='editor')
 </template>
 
 <script lang="ts">
