@@ -332,10 +332,9 @@ export default defineComponent({
         },
         async onReload() {
             try {
+                globalThis.localStorage.removeItem('backup');
                 this.state.root = await this.getLatestRoot();
                 await this.refresh();
-
-                globalThis.localStorage.removeItem('backup');
             } catch (err) {
                 this.state.sync = SyncState.DL_FAIL;
             }
