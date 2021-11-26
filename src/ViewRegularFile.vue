@@ -10,10 +10,12 @@ div
         v-html='mdText'
         v-show=`tabName === 'viewer'`
     )
-    div.margin-up-down(
-        v-show=`tabName === 'editor'`
-        ref='editor'
-    )
+    div
+        p {{saved}}
+        div.margin-up-down(
+            v-show=`tabName === 'editor'`
+            ref='editor'
+        )
 </template>
 
 <script lang="ts">
@@ -21,11 +23,12 @@ import { PropType, defineComponent } from 'vue';
 import { Snapshot } from './states';
 import { NInput, NCard, NTabs, NTab, } from 'naive-ui';
 import MarkdownIt = require('markdown-it');
-import markdownItKatex = require('markdown-it-katex');
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import '../katex/katex.min.css';
 import CodeFlask from 'codeflask';
+import markdownItLatex2img = require('markdown-it-latex2img');
+import { debounce } from 'lodash';
 
 
 const markdownIt = new MarkdownIt({
@@ -43,7 +46,7 @@ const markdownIt = new MarkdownIt({
         return '';
     }
 });
-markdownIt.use(markdownItKatex);
+markdownIt.use(markdownItLatex2img);
 
 
 export default defineComponent({
@@ -54,9 +57,20 @@ export default defineComponent({
             tabSize: 4,
         });
         editor.updateCode(this.state.view);
-        editor.onUpdate((code: string) => {
+        this.$data.original = this.state.view;
+        const debouncedOnUpdate = debounce((code: string) => {
             this.state.view = code;
             this.backup(code);
+            this.saved = '💾 Saved locally.';
+        }, 1000);
+        let editorFirstStart = true;
+        editor.onUpdate((code: string) => {
+            if (editorFirstStart) {
+                editorFirstStart = false;
+                return;
+            }
+            this.saved = '✏️ Editing...';
+            debouncedOnUpdate(code);
         });
     },
     computed: {
@@ -67,6 +81,7 @@ export default defineComponent({
     data() {
         return {
             tabName: 'viewer',
+            saved: '💾 Saved.',
         }
     },
     methods: {
