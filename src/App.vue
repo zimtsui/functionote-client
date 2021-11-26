@@ -18,6 +18,10 @@ div#root
         @click='onMkmd'
     ) New markdown
     div.margin-up-down: NButton.full-width(
+        :disabled=`!buttonVisibility('onRemove')`
+        @click='onRemove'
+    ) Remove
+    div.margin-up-down: NButton.full-width(
         :disabled=`!buttonVisibility('onReload')`
         @click='onReload'
     ) Reload
@@ -50,7 +54,7 @@ const assert = chai.assert;
 
 export default defineComponent({
     async mounted() {
-        const snapshotString = localStorage.getItem('backup');
+        const snapshotString = globalThis.localStorage.getItem('backup');
         if (snapshotString !== null) {
             const snapshot: Snapshot = JSON.parse(snapshotString);
             this.state.sync = SyncState.DL_SUCC_REGULAR_FILE;
@@ -126,13 +130,19 @@ export default defineComponent({
                         this.state.sync === SyncState.DL_SUCC_DIRECTORY ||
                         this.state.sync === SyncState.DL_SUCC_REGULAR_FILE
                     ) && this.state.filePathArray.length > 0;
+                case 'onRemove':
+                    return (
+                        this.state.sync === SyncState.DL_SUCC_REGULAR_FILE ||
+                        this.state.sync === SyncState.DL_SUCC_DIRECTORY &&
+                        this.state.view.length === 0
+                    ) && this.state.filePathArray.length > 0;
             }
         },
         async getLatestRoot(): Promise<FnodeId> {
             this.state.sync = SyncState.DL_ING;
 
             const res = await fetch(
-                [config.BACKEND_BASEURL, 'subscriptions'].join('/'), {
+                config.BACKEND_BASEURL + 'subscriptions', {
                 credentials: 'include',
             });
             assert(res.ok);
@@ -149,10 +159,10 @@ export default defineComponent({
                 try {
                     this.state.sync = SyncState.UL_ING_DIRECTORY;
 
-                    const name = window.prompt('Document name:');
+                    const name = globalThis.prompt('Document name:');
                     if (typeof name !== 'string') return;
                     const res = await fetch(
-                        [config.BACKEND_BASEURL, ...this.urlPathArray, name].join('/'), {
+                        config.BACKEND_BASEURL + [...this.urlPathArray, name].join('/'), {
                         method: 'PATCH',
                         headers: {
                             'Branch-Id': String(this.state.branch),
@@ -183,7 +193,10 @@ export default defineComponent({
             try {
                 if (this.state.filePathArray.length === 0) return;
                 try {
-                    if (this.state.sync === SyncState.DL_SUCC_REGULAR_FILE)
+                    if (
+                        this.state.sync === SyncState.DL_SUCC_REGULAR_FILE &&
+                        globalThis.localStorage.getItem('backup') !== null
+                    )
                         await this.save(this.state.view);
                 } catch (err) {
                     this.state.sync = SyncState.DL_SUCC_REGULAR_FILE;
@@ -203,10 +216,10 @@ export default defineComponent({
                 try {
                     this.state.sync = SyncState.UL_ING_DIRECTORY;
 
-                    const name = window.prompt('Directory name:');
+                    const name = globalThis.prompt('Directory name:');
                     if (typeof name !== 'string') return;
                     const res = await fetch(
-                        [config.BACKEND_BASEURL, ...this.urlPathArray, name].join('/'), {
+                        config.BACKEND_BASEURL + [...this.urlPathArray, name].join('/'), {
                         method: 'PATCH',
                         headers: {
                             'Branch-Id': String(this.state.branch),
@@ -230,11 +243,44 @@ export default defineComponent({
                 }
             } catch (err) { }
         },
+        async onRemove() {
+            try {
+                try {
+                    if (!globalThis.confirm('Confirm to remove?')) return;
+                    this.state.sync = this.state.sync === SyncState.DL_SUCC_DIRECTORY
+                        ? SyncState.UL_ING_DIRECTORY
+                        : SyncState.UL_ING_REGULAR_FILE;
+                    const res = await fetch(
+                        config.BACKEND_BASEURL + [...this.urlPathArray].join('/'), {
+                        method: 'DELETE',
+                        headers: {
+                            'Branch-Id': String(this.state.branch),
+                            'Root-File-Id': String(this.state.root),
+                            'Time': String(Date.now()),
+                        },
+                        credentials: 'include',
+                    });
+                    assert(res.ok);
+                    assert(res.headers.has('Root-File-Id'));
+                    this.state.root = Number(res.headers.get('Root-File-Id'));
+                } catch (err) {
+                    this.state.sync = SyncState.DL_SUCC_DIRECTORY;
+                    throw err;
+                }
+                try {
+                    this.state.filePathArray.pop();
+                    await this.refresh();
+                } catch (err) {
+                    this.state.sync = SyncState.DL_FAIL;
+                    throw err;
+                }
+            } catch (err) { }
+        },
         async refresh() {
             this.state.sync = SyncState.DL_ING;
 
             const res = await fetch(
-                [config.BACKEND_BASEURL, ...this.urlPathArray].join('/'), {
+                config.BACKEND_BASEURL + [...this.urlPathArray].join('/'), {
                 headers: {
                     'Branch-Id': String(this.state.branch),
                     'Root-File-Id': String(this.state.root),
@@ -259,7 +305,7 @@ export default defineComponent({
             this.state.sync = SyncState.UL_ING_REGULAR_FILE;
 
             const res = await fetch(
-                [config.BACKEND_BASEURL, ...this.urlPathArray].join('/'), {
+                config.BACKEND_BASEURL + [...this.urlPathArray].join('/'), {
                 method: 'PUT',
                 headers: {
                     'Branch-Id': String(this.state.branch),
@@ -274,7 +320,7 @@ export default defineComponent({
             assert(res.headers.has('Root-File-Id'));
             this.state.root = Number(res.headers.get('Root-File-Id'));
 
-            localStorage.removeItem('backup');
+            globalThis.localStorage.removeItem('backup');
         },
         async onDownwards(name: string) {
             try {
@@ -289,7 +335,7 @@ export default defineComponent({
                 this.state.root = await this.getLatestRoot();
                 await this.refresh();
 
-                localStorage.removeItem('backup');
+                globalThis.localStorage.removeItem('backup');
             } catch (err) {
                 this.state.sync = SyncState.DL_FAIL;
             }
