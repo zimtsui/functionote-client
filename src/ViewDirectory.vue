@@ -1,7 +1,7 @@
 <template lang="pug">
 div
     ul
-        li.margin-up-down.break-word(text)(
+        li.margin-up-down.break-word(
             v-for='item in list'
             @click=`$emit('downwards', item.name)`
         ) {{item.type === '-' ? '📝' : '📁'}} {{item.name}}
