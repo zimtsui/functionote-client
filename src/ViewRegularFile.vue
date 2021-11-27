@@ -89,12 +89,10 @@ export default defineComponent({
     margin-top 5px
 .margin-right
     margin-right 5px
-
 .my-editor
     font-family Fira code, Fira Mono, Consolas, Menlo, Courier, monospace
     font-size 14px
     line-height 1.5
-    padding 5px
 </style>
 
 <style lang="stylus">
