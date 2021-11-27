@@ -11,25 +11,28 @@ div
         v-show=`tabName === 'viewer'`
     )
     div.margin-up-down(v-show=`tabName === 'editor'`)
-        p {{saved}}
-        div.margin-up-down(ref='editor')
+        PrismEditor.my-editor(
+            v-model='this.state.view'
+            tab-size=4
+            :highlight='(x=>x)'
+            @input='backup'
+        )
 </template>
 
 <script lang="ts">
 import { PropType, defineComponent } from 'vue';
 import { Snapshot } from './states';
 import { NInput, NCard, NTabs, NTab, } from 'naive-ui';
-import MarkdownIt = require('markdown-it');
+import MarkdownIt from 'markdown-it';
+import markdownItKatex = require('markdown-it-katex');
+import '../katex-0.6.0/katex.min.css';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
-import '../katex/katex.min.css';
-import CodeFlask from 'codeflask';
-import markdownItLatex2img = require('markdown-it-latex2img');
-import { debounce } from 'lodash';
+import { PrismEditor } from 'vue-prism-editor';
+import 'vue-prism-editor/dist/prismeditor.min.css';
 
 
-const markdownIt = new MarkdownIt({
-    linkify: true,
+const mdIt = new MarkdownIt({
     highlight: function (str, lang) {
         if (lang && hljs.getLanguage(lang)) {
             try {
@@ -43,42 +46,21 @@ const markdownIt = new MarkdownIt({
         return '';
     }
 });
-markdownIt.use(markdownItLatex2img);
+mdIt.use(markdownItKatex);
 
 
 export default defineComponent({
-    emits: ['update:modelValue'],
     inject: ['state'],
     mounted() {
-        const editor = new CodeFlask(this.$refs.editor, {
-            tabSize: 4,
-        });
-        editor.updateCode(this.state.view);
-        this.$data.original = this.state.view;
-        const debouncedOnUpdate = debounce((code: string) => {
-            this.state.view = code;
-            this.backup(code);
-            this.saved = '💾 Saved locally.';
-        }, 1000);
-        let editorFirstStart = true;
-        editor.onUpdate((code: string) => {
-            if (editorFirstStart) {
-                editorFirstStart = false;
-                return;
-            }
-            this.saved = '✏️ Editing...';
-            debouncedOnUpdate(code);
-        });
     },
     computed: {
         mdText() {
-            return markdownIt.render(this.state.view);
+            return mdIt.render(this.state.view);
         }
     },
     data() {
         return {
             tabName: 'viewer',
-            saved: '💾 Saved.',
         }
     },
     methods: {
@@ -97,6 +79,7 @@ export default defineComponent({
         NCard,
         NTabs,
         NTab,
+        PrismEditor,
     }
 });
 </script>
@@ -105,5 +88,16 @@ export default defineComponent({
 .margin-up-down
     margin-top 5px
 .margin-right
-    margin-right: 5px
+    margin-right 5px
+
+.my-editor
+    font-family Fira code, Fira Mono, Consolas, Menlo, Courier, monospace
+    font-size 14px
+    line-height 1.5
+    padding 5px
+</style>
+
+<style lang="stylus">
+.prism-editor__textarea
+    outline none
 </style>
