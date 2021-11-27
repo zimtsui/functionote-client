@@ -1,8 +1,9 @@
 <template lang="pug">
 div
-    PrismEditor.my-editor(
+    prism-editor.my-editor(
         v-model='this.state.view'
-        tab-size=4
+        :tab-size='1'
+        :insert-spaces='false'
         :highlight='(x=>x)'
         @input='backup'
     )
@@ -38,6 +39,7 @@ export default defineComponent({
 .my-editor
     font-family monospace
     line-height 1.5
+    tab-size 4
 </style>
 
 <style lang="stylus">
