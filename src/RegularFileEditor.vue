@@ -36,8 +36,7 @@ export default defineComponent({
 
 <style lang="stylus" scoped>
 .my-editor
-    font-family Fira code, Fira Mono, Consolas, Menlo, Courier, monospace
-    font-size 14px
+    font-family monospace
     line-height 1.5
 </style>
 
